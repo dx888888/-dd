@@ -174,46 +174,109 @@
 
     // 解析坐标字符串
     function parseCoordinates(coordString) {
-        // 格式: "78,131|183,131|292,118|130,113"
-        return coordString.split('|').map(coord => {
-            const [x, y] = coord.split(',').map(Number);
-            return { x, y };
-        });
-    }
-
-    // 点击指定坐标（相对于元素的坐标）
-    function clickCoordinate(element, x, y) {
-        return new Promise((resolve) => {
-            const rect = element.getBoundingClientRect();
-            const clickX = rect.left + x;
-            const clickY = rect.top + y;
-
-            // 创建点击事件
-            const clickEvent = new MouseEvent('click', {
-                bubbles: true,
-                cancelable: true,
-                clientX: clickX,
-                clientY: clickY
-            });
-
-            // 在元素上触发点击事件
-            const targetElement = document.elementFromPoint(clickX, clickY) || element;
-            targetElement.dispatchEvent(clickEvent);
-            
-            const logMsg = `点击相对坐标: (${x}, ${y}) -> 屏幕坐标: (${clickX}, ${clickY})`;
-            console.log(logMsg);
-            addLog(logMsg, 'info');
-            
-            // 延迟一段时间再继续
-            setTimeout(resolve, 500);
-        });
-    }
-
-    // 按顺序点击所有坐标
-    async function clickCoordinates(element, coordinates) {
-        for (const coord of coordinates) {
-            await clickCoordinate(element, coord.x, coord.y);
+        const coordinates = [];
+        const pairs = coordString.split('|');  // 按|分割坐标对
+        
+        for (const pair of pairs) {
+            const [x, y] = pair.split(',').map(coord => parseInt(coord.trim()));
+            if (!isNaN(x) && !isNaN(y)) {
+                coordinates.push({ x, y });
+            }
         }
+        return coordinates;
+    }
+
+    // 显示点击反馈效果
+    function showClickFeedback(x, y) {
+        const feedback = document.createElement('div');
+        feedback.style.cssText = `
+            position: fixed;
+            left: ${x - 15}px;
+            top: ${y - 15}px;
+            width: 30px;
+            height: 30px;
+            border: 3px solid red;
+            border-radius: 50%;
+            background: rgba(255, 0, 0, 0.3);
+            z-index: 99999;
+            pointer-events: none;
+            animation: clickFeedback 0.6s ease-out forwards;
+        `;
+        
+        // 添加CSS动画
+        if (!document.getElementById('click-feedback-style')) {
+            const style = document.createElement('style');
+            style.id = 'click-feedback-style';
+            style.textContent = `
+                @keyframes clickFeedback {
+                    0% { transform: scale(0.5); opacity: 1; }
+                    50% { transform: scale(1.2); opacity: 0.8; }
+                    100% { transform: scale(1.5); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(feedback);
+        
+        // 动画结束后移除元素
+        setTimeout(() => {
+            if (feedback.parentNode) {
+                feedback.parentNode.removeChild(feedback);
+            }
+        }, 600);
+    }
+
+    // 执行点击操作
+    function performClicks(coordinates) {
+        return new Promise((resolve) => {
+            let clickIndex = 0;
+            
+            function clickNext() {
+                if (clickIndex >= coordinates.length) {
+                    addLog('✅ 所有坐标点击完成!', 'success');
+                    resolve();
+                    return;
+                }
+                
+                const coord = coordinates[clickIndex];
+                const targetElement = document.querySelector('body > div');
+                const rect = targetElement.getBoundingClientRect();
+                
+                // 坐标转换：相对坐标转绝对坐标
+                const actualX = rect.left + coord.x;
+                const actualY = rect.top + coord.y;
+                
+                // 创建和触发点击事件
+                const clickEvent = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: actualX,
+                    clientY: actualY
+                });
+                
+                const clickTarget = document.elementFromPoint(actualX, actualY);
+                if (clickTarget) {
+                    clickTarget.dispatchEvent(clickEvent);
+                    
+                    // 显示视觉反馈
+                    showClickFeedback(actualX, actualY);
+                    
+                    const logMsg = `点击坐标 ${clickIndex + 1}/${coordinates.length}: (${coord.x}, ${coord.y}) -> 屏幕坐标: (${actualX}, ${actualY})`;
+                    console.log(logMsg);
+                    addLog(logMsg, 'info');
+                } else {
+                    addLog(`无法找到点击目标: (${actualX}, ${actualY})`, 'warning');
+                }
+                
+                clickIndex++;
+                
+                // 200ms后点击下一个坐标
+                setTimeout(clickNext, 200);
+            }
+            
+            clickNext();
+        });
     }
 
     // 主要处理函数 - 使用截屏方式
@@ -284,11 +347,21 @@
             // 按顺序点击坐标
             addLog('开始按顺序点击坐标...', 'processing');
             updateStatus('正在点击坐标...', 'processing');
-            addLog(`点击目标元素: ${captchaElement.tagName}#${captchaElement.id}`, 'info');
-            await clickCoordinates(captchaElement, coordinates);
-            addLog('✅ 所有坐标点击完成!', 'success');
+            addLog(`将在验证码区域内点击 ${coordinates.length} 个坐标`, 'info');
+            await performClicks(coordinates);
+            
+            // 等待一下再提交验证
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 查找并点击验证按钮
+            const submitButton = document.querySelector('[type="submit"], .submit-btn, #submit, .verify-btn');
+            if (submitButton) {
+                submitButton.click();
+                addLog('✅ 已点击验证按钮', 'success');
+            }
+            
             updateStatus('验证码处理完成', 'success');
-            console.log('所有坐标点击完成');
+            console.log('验证码处理流程完成');
             
             // 延迟重置处理标志，避免立即重复处理
             setTimeout(() => {
