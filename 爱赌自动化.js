@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         爱赌验证码自动识别脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.0
 // @description  自动识别验证码并点击坐标
 // @author       You
 // @match        https://yanzm.gwn81.com/*
