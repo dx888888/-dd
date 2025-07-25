@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         爱赌验证码自动识别脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  自动识别验证码并点击坐标
 // @author       You
 // @match        https://yanzm.gwn81.com/*
@@ -228,56 +228,56 @@
     }
 
     // 执行点击操作
-    function performClicks(coordinates) {
-        return new Promise((resolve) => {
-            let clickIndex = 0;
-            
-            function clickNext() {
-                if (clickIndex >= coordinates.length) {
-                    addLog('✅ 所有坐标点击完成!', 'success');
-                    resolve();
-                    return;
-                }
-                
-                const coord = coordinates[clickIndex];
-                const targetElement = document.querySelector('body > div');
-                const rect = targetElement.getBoundingClientRect();
-                
-                // 坐标转换：相对坐标转绝对坐标
-                const actualX = rect.left + coord.x;
-                const actualY = rect.top + coord.y;
-                
-                // 创建和触发点击事件
-                const clickEvent = new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    clientX: actualX,
-                    clientY: actualY
-                });
-                
-                const clickTarget = document.elementFromPoint(actualX, actualY);
-                if (clickTarget) {
-                    clickTarget.dispatchEvent(clickEvent);
-                    
-                    // 显示视觉反馈
-                    showClickFeedback(actualX, actualY);
-                    
-                    const logMsg = `点击坐标 ${clickIndex + 1}/${coordinates.length}: (${coord.x}, ${coord.y}) -> 屏幕坐标: (${actualX}, ${actualY})`;
-                    console.log(logMsg);
-                    addLog(logMsg, 'info');
-                } else {
-                    addLog(`无法找到点击目标: (${actualX}, ${actualY})`, 'warning');
-                }
-                
-                clickIndex++;
-                
-                // 200ms后点击下一个坐标
-                setTimeout(clickNext, 200);
-            }
-            
-            clickNext();
-        });
-    }
+     function performClicks(coordinates, captchaElement) {
+         return new Promise((resolve) => {
+             let clickIndex = 0;
+             
+             function clickNext() {
+                 if (clickIndex >= coordinates.length) {
+                     addLog('✅ 所有坐标点击完成!', 'success');
+                     resolve();
+                     return;
+                 }
+                 
+                 const coord = coordinates[clickIndex];
+                 // 使用传入的验证码元素作为参考
+                 const rect = captchaElement.getBoundingClientRect();
+                 
+                 // 坐标转换：相对坐标转绝对坐标
+                 const actualX = rect.left + coord.x;
+                 const actualY = rect.top + coord.y;
+                 
+                 // 创建和触发点击事件
+                 const clickEvent = new MouseEvent('click', {
+                     bubbles: true,
+                     cancelable: true,
+                     clientX: actualX,
+                     clientY: actualY
+                 });
+                 
+                 const clickTarget = document.elementFromPoint(actualX, actualY);
+                 if (clickTarget) {
+                     clickTarget.dispatchEvent(clickEvent);
+                     
+                     // 显示视觉反馈
+                     showClickFeedback(actualX, actualY);
+                     
+                     const logMsg = `点击坐标 ${clickIndex + 1}/${coordinates.length}: (${coord.x}, ${coord.y}) -> 屏幕坐标: (${actualX}, ${actualY})`;
+                     console.log(logMsg);
+                     addLog(logMsg, 'info');
+                 } else {
+                     addLog(`无法找到点击目标: (${actualX}, ${actualY})`, 'warning');
+                 }
+                 
+                 clickIndex++;
+                 
+                 // 200ms后点击下一个坐标
+                 setTimeout(clickNext, 200);
+             }
+             
+             clickNext();
+         });
+     }
 
     // 主要处理函数 - 使用截屏方式
     async function processCaptcha() {
@@ -345,10 +345,11 @@
             console.log('解析的坐标:', coordinates);
 
             // 按顺序点击坐标
-            addLog('开始按顺序点击坐标...', 'processing');
-            updateStatus('正在点击坐标...', 'processing');
-            addLog(`将在验证码区域内点击 ${coordinates.length} 个坐标`, 'info');
-            await performClicks(coordinates);
+             addLog('开始按顺序点击坐标...', 'processing');
+             updateStatus('正在点击坐标...', 'processing');
+             addLog(`将在验证码区域内点击 ${coordinates.length} 个坐标`, 'info');
+             addLog(`验证码元素位置: left=${captchaElement.getBoundingClientRect().left}, top=${captchaElement.getBoundingClientRect().top}`, 'info');
+             await performClicks(coordinates, captchaElement);
             
             // 等待一下再提交验证
             await new Promise(resolve => setTimeout(resolve, 500));
