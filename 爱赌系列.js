@@ -5,6 +5,7 @@
 // @description  自动截图验证码并调用云码识别，按返回坐标点击
 // @author       PG
 // @match        https://verifybot11.top/*
+// @match        https://hbyz.chigua6.it.com/*
 // @require      https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
